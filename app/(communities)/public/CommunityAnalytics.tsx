@@ -361,6 +361,8 @@ const CommunityAnalytics = () => {
                             {/* Stats Content */}
                             {activeTab === 'non-revenue' ? (
                                 <View className="space-y-2 px--8 -mx-2">
+                                
+
                                     <View className="flex-row justify-between items-center">
                                         <Text className="text-gray-400 text-base" style={{ fontFamily: 'Inter' }}>Total Videos</Text>
                                         <Text className="text-white text-base" style={{ fontFamily: 'Inter' }}>{stats ? formatNumber(stats.totalVideos || 0) : '0'}</Text>
@@ -372,6 +374,7 @@ const CommunityAnalytics = () => {
                                 </View>
                             ) : null}
                       </View>
+                        </LinearGradient>
                     </>
                 )}
             </ScrollView>

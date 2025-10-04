@@ -58,7 +58,7 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
   const handleAddMoney = async () => {
     const validation = validateAmount(amount);
     if (!validation.isValid) {
-      Alert.alert("Error", validation.error);
+      //Alert.alert("Error", validation.error);
       return;
     }
 
@@ -114,6 +114,22 @@ const AddMoneyModal: React.FC<AddMoneyModalProps> = ({
 
       if (verificationError) {
         throw verificationError;
+      }
+
+      // await onVerifyPayment(
+      //   "TEST_ORDER_ID",
+      //   "add_money_to_wallet_10",
+      //   "TEST_RECEIPT_OR_TOKEN",
+      //   numAmount
+      // );
+
+      try {
+        await finishTransaction({
+          purchase: billingResult.rawPurchase,
+          isConsumable: true,
+        });
+      } catch (finishErr) {
+        console.error("finishTransaction failed:", finishErr);
       }
 
       onSuccess(numAmount);
