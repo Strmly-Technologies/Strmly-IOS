@@ -6,18 +6,19 @@ export default {
     slug: "strmly",
     scheme: "strmly",
     owner: "strmly-technologies",
-    version: "1.0.8",
+    version: "1.0.7",
     orientation: "portrait",
     icon: "./assets/images/logo3.jpg",
     userInterfaceStyle: "dark",
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.anonymous.strmly",
-      buildNumber: "7",
+      buildNumber: "6",
       supportsTablet: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
-        UIBackgroundModes: []
+        UIBackgroundModes: [],
+        NSPhotoLibraryUsageDescription: "Strmly needs access to your photo library to let you upload videos, select custom thumbnails for your content, and attach photos as proof when reporting issues. For example, you can upload videos from your gallery, choose thumbnail images for your posts, and attach screenshots when reporting inappropriate content."
       }
     },
     android: {

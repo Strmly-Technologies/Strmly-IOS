@@ -409,7 +409,7 @@ const reportVideo = async () => {
           <Text className="text-white text-sm">{reshares}</Text>
         </View> */}
 
-        <View className="items-center gap-1">
+        {/* <View className="items-center gap-1">
           <Pressable onPress={openGifting}>
             <Image
               className="size-7"
@@ -417,6 +417,22 @@ const reportVideo = async () => {
             />
           </Pressable>
           <Text className="text-white text-sm">{gift}</Text>
+        </View> */}
+
+        {/* NEW: Report Button */}
+        <View className="items-center gap-1">
+          <Pressable 
+            onPress={reportVideo}
+            disabled={isReporting}
+            style={{ opacity: isReporting ? 0.5 : 1 }}
+          >
+            <FontAwesome
+              name="flag"
+              size={24}
+              color="white"
+            />
+          </Pressable>
+          <Text className="text-white text-xs">Report</Text>
         </View>
 
         {/* NEW: Report Button */}

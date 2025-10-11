@@ -264,6 +264,13 @@ const Setting = () => {
           </View>*/
 
           {/* Action Buttons */}
+          {/* <Pressable
+            onPress={() => router.push("/(dashboard)/wallet")}
+            className="w-full"
+          >
+            <Text className="text-white text-lg">Wallet</Text>
+          </Pressable> */}
+
           <Pressable
             onPress={() => router.push("/(dashboard)/wallet")}
             className="w-full"
