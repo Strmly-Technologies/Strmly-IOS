@@ -103,12 +103,13 @@ export const Drawer = ({
       }
 
       // ✅ show success message
-      setSuccessMessage(data.message || "User blocked successfully!");
+      // setSuccessMessage(data.message || "User blocked successfully!");
       setSelectedOptions([]);
       if (onConfirm) {
         setSelectedOptions([]);
         onConfirm(targetId);
       }
+      runOnJS(onClose)();
     } catch (error) {
       console.error("Error in reportCall:", error);
       setSuccessMessage("Something went wrong. Please try again.");
@@ -118,8 +119,8 @@ export const Drawer = ({
   };
 
   const handleClose = () => {
-      runOnJS(onClose)();
-      setSuccessMessage(null);
+    runOnJS(onClose)();
+    setSuccessMessage(null);
   };
 
   return (
