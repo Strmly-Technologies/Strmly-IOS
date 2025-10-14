@@ -37,7 +37,7 @@ const InteractOptions = ({
   comments,
   creator,
   onLikeUpdate,
-  onShareUpdate, 
+  onShareUpdate,
   onGiftUpdate,
   onCommentUpdate,
 }: InteractOptionsProps) => {
@@ -83,18 +83,15 @@ const InteractOptions = ({
     }
 
     try {
-      const response = await fetch(
-        `${BACKEND_API_URL}/interactions/like`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ videoId: videoId }),
-        }
-      );
-      
+      const response = await fetch(`${BACKEND_API_URL}/interactions/like`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ videoId: videoId }),
+      });
+
       if (!response.ok) {
         // Revert on error
         setLike(prevLikeCount);
@@ -104,14 +101,14 @@ const InteractOptions = ({
         }
         throw new Error("Failed while like video");
       }
-      
+
       const data = await response.json();
       console.log("Like video response:", data);
-      
+
       // FIX: Update with server response
       setLike(data.likes);
       setIsLikedVideo(data.isLiked);
-      
+
       if (onLikeUpdate) {
         onLikeUpdate(data.likes, data.isLiked);
       }
@@ -159,11 +156,14 @@ const InteractOptions = ({
 
           const data = await response.json();
           console.log("check like response:", data);
-          
+
           setLike(data.likes);
           setIsLikedVideo(data.isLiked);
         } catch (err: any) {
-          if (!err.message?.includes("401") && !err.message?.includes("token")) {
+          if (
+            !err.message?.includes("401") &&
+            !err.message?.includes("token")
+          ) {
             console.log("Error checking like status:", err);
           }
         }
@@ -194,7 +194,7 @@ const InteractOptions = ({
               },
             }
           );
-          
+
           if (!response.ok) {
             if (response.status === 401) {
               console.log("Token expired, user needs to re-authenticate");
@@ -203,17 +203,20 @@ const InteractOptions = ({
             }
             throw new Error("Failed while checking video gifting status");
           }
-            
+
           const data = await response.json();
           console.log("check gifting response:", data);
-          
+
           setGifts(data.data);
-          
+
           if (onGiftUpdate) {
             onGiftUpdate(data.data);
           }
         } catch (err: any) {
-          if (!err.message?.includes("401") && !err.message?.includes("token")) {
+          if (
+            !err.message?.includes("401") &&
+            !err.message?.includes("token")
+          ) {
             console.log("Error checking gift status:", err);
           }
         }
@@ -244,7 +247,7 @@ const InteractOptions = ({
             body: JSON.stringify({ videoId: videoId }),
           }
         );
-        
+
         if (!response.ok) {
           if (response.status === 401) {
             console.log("Token expired, user needs to re-authenticate");
@@ -253,7 +256,7 @@ const InteractOptions = ({
           }
           throw new Error("Failed while checking reshare status");
         }
-          
+
         const data = await response.json();
         console.log("reshare status:", data.isReshared);
         setIsResharedVideo(data.isReshared);
@@ -276,7 +279,9 @@ const InteractOptions = ({
 
     const prevReshareCount = reshares;
     const prevIsReshared = isResharedVideo;
-    const newReshareCount = prevIsReshared ? prevReshareCount - 1 : prevReshareCount + 1;
+    const newReshareCount = prevIsReshared
+      ? prevReshareCount - 1
+      : prevReshareCount + 1;
     const newReshareState = !prevIsReshared;
 
     // Optimistic update
@@ -296,7 +301,7 @@ const InteractOptions = ({
         },
         body: JSON.stringify({ videoId: videoId }),
       });
-      
+
       if (!response.ok) {
         // Revert on error
         setReshares(prevReshareCount);
@@ -306,12 +311,12 @@ const InteractOptions = ({
         }
         throw new Error("Failed to reshare video");
       }
-      
+
       const data = await response.json();
       console.log("Reshare video response:", data);
-      
+
       setReshares(data.totalReshares);
-      
+
       if (onShareUpdate) {
         onShareUpdate(data.totalReshares, newReshareState);
       }
@@ -332,21 +337,20 @@ const InteractOptions = ({
   };
 
   // NEW: Report video functionality
-// NEW: Report video functionality
-const reportVideo = async () => {
-  if (!token || !videoId) {
-    return;
-  }
+  const reportVideo = async () => {
+    if (!token || !videoId) {
+      return;
+    }
 
-  // Navigate to report page with video details
-  router.push({
-    pathname: "/(dashboard)/long/_components/report",
-    params: {
-      videoId: videoId,
-      videoName: name,
-    },
-  });
-};
+    // Navigate to report page with video details
+    router.push({
+      pathname: "/(dashboard)/long/_components/report",
+      params: {
+        videoId: videoId,
+        videoName: name,
+      },
+    });
+  };
 
   // FIX: Add function to handle comment updates from CommentSection
   const handleCommentAdded = useCallback(() => {
@@ -421,32 +425,12 @@ const reportVideo = async () => {
 
         {/* NEW: Report Button */}
         <View className="items-center gap-1">
-          <Pressable 
+          <Pressable
             onPress={reportVideo}
             disabled={isReporting}
             style={{ opacity: isReporting ? 0.5 : 1 }}
           >
-            <FontAwesome
-              name="flag"
-              size={24}
-              color="white"
-            />
-          </Pressable>
-          <Text className="text-white text-xs">Report</Text>
-        </View>
-
-        {/* NEW: Report Button */}
-        <View className="items-center gap-1">
-          <Pressable 
-            onPress={reportVideo}
-            disabled={isReporting}
-            style={{ opacity: isReporting ? 0.5 : 1 }}
-          >
-            <FontAwesome
-              name="flag"
-              size={24}
-              color="white"
-            />
+            <FontAwesome name="flag" size={24} color="white" />
           </Pressable>
           <Text className="text-white text-xs">Report</Text>
         </View>

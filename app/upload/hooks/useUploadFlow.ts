@@ -442,6 +442,7 @@ export const useUploadFlow = () => {
       const fileName = state.selectedFile.name || "video.mp4";
       const contentType = state.selectedFile.type || "video/mp4";
       const fileSize = state.selectedFile.size || 0;
+      console.log(fileName, contentType, fileSize)
 
       const presignResponse = await fetch(
         `${CONFIG.API_BASE_URL}/videos/get-url`,

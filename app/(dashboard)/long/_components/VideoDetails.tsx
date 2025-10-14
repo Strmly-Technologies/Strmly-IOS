@@ -24,6 +24,8 @@ type VideoDetailsProps = {
   haveAccess: React.Dispatch<React.SetStateAction<boolean>>;
   checkAccess: React.Dispatch<React.SetStateAction<boolean>>;
   setWantToBuyVideo: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowBuyOption: React.Dispatch<React.SetStateAction<boolean>>;
+  showBuyOption: boolean;
 
   videoId: string;
   name: string;
@@ -71,6 +73,7 @@ type VideoDetailsProps = {
   episode_number: number | null;
   onToggleFullScreen?: () => void;
   isFullScreen?: boolean;
+  onEpisodeChange?: (episodeData: any) => void;
 };
 
 const VideoDetails = ({
@@ -97,7 +100,6 @@ const VideoDetails = ({
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedEpisodeIndex, setSelectedEpisodeIndex] = useState(0);
   const [showPriceDropdown, setShowPriceDropdown] = useState(false);
-  const [showBuyOption, setShowBuyOption] = useState(false);
   const [isFollowCreator, setIsFollowCreator] = useState<boolean>(false);
   const [hasCreatorPass, setHasCreatorPass] = useState<boolean>(false);
   const [hasAccessPass, setHasAccessPass] = useState<string | null>(null);
