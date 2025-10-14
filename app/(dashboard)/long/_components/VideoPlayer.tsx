@@ -30,9 +30,11 @@ import { PanGestureHandler, State } from "react-native-gesture-handler";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { useOrientationStore } from "@/store/useOrientationStore";
 import VideoProgressBar from "./VideoProgressBar";
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Haptics from 'expo-haptics';
+import * as Haptics from "expo-haptics";
+import { Drawer } from "@/components/ChoiceDrawer";
+import { MoreVerticalIcon } from "lucide-react-native";
 
 const { height: screenHeight, width: screenWidth } = Dimensions.get("window");
 
@@ -41,6 +43,7 @@ type Props = {
   isActive: boolean;
   isGlobalPlayer: boolean;
   showCommentsModal?: boolean;
+  handleBlockSuccess: (blockedUserId: string) => void;
   setShowCommentsModal?: (show: boolean) => void;
   onEpisodeChange?: (episodeData: any) => void;
   onStatsUpdate?: (stats: {
@@ -59,6 +62,7 @@ const VideoPlayer = ({
   showCommentsModal = false,
   setShowCommentsModal,
   onEpisodeChange,
+  handleBlockSuccess,
   onStatsUpdate,
   containerHeight,
 }: Props) => {
@@ -78,11 +82,6 @@ const VideoPlayer = ({
     setPurchaseSuccessCallback,
 
     isPurchasedCommunityPass,
-
-
-
-
-
   } = useGiftingStore();
 
   // Paid video states
@@ -90,7 +89,6 @@ const VideoPlayer = ({
   const [checkCreatorPass, setCheckCreatorPass] = useState(false);
   const [haveAccess, setHaveAccess] = useState(false);
   const [accessVersion, setAccessVersion] = useState(0);
-
 
   const [accessCheckedAPI, setAccessCheckedAPI] = useState(false);
   const { user } = useAuthStore();
@@ -116,6 +114,10 @@ const VideoPlayer = ({
   const [showSpeedIndicator, setShowSpeedIndicator] = useState(false);
   const speedLevels = [1.0, 1.25, 1.5, 2.0, 3.0];
   const speedLabels = ["1x", "1.25x", "1.5x", "2x", "3x"];
+
+  // Drawer
+  const [visible, setVisible] = useState(false);
+  const [selected, setSelected] = useState<string[]>([]);
 
   // Local stats
   const [localStats, setLocalStats] = useState({
@@ -145,23 +147,23 @@ const VideoPlayer = ({
       const newSpeed = speedLevels[speedLevel];
       player.playbackRate = newSpeed;
       setCurrentSpeedLevel(speedLevel);
-      
+
       // Add haptic feedback
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      
+
       // Show speed indicator
       setShowSpeedIndicator(true);
       setTimeout(() => setShowSpeedIndicator(false), 2000);
-      
+
       console.log(`Speed changed to: ${speedLabels[speedLevel]}`);
     }
   };
 
-  const handleSpeedSwipe = (direction: 'left' | 'right') => {
-    if (direction === 'right') {
+  const handleSpeedSwipe = (direction: "left" | "right") => {
+    if (direction === "right") {
       // Right swipe: 1x → 1.25x → 1.5x → 2x → 3x → 1x (cycle back)
       let nextLevel;
-      
+
       if (currentSpeedLevel >= speedLevels.length - 1) {
         // If at maximum speed (3x), cycle back to 1x
         nextLevel = 0;
@@ -169,14 +171,14 @@ const VideoPlayer = ({
         // Otherwise, increase to next level
         nextLevel = currentSpeedLevel + 1;
       }
-      
+
       if (nextLevel !== currentSpeedLevel) {
         updatePlaybackSpeed(nextLevel);
       }
     } else {
       // Left swipe - reverse order cycling: 1x → 3x → 2x → 1.5x → 1.25x → 1x
       let nextLevel;
-      
+
       switch (currentSpeedLevel) {
         case 0: // 1x → 3x (jump to highest speed)
           nextLevel = 4; // 3x
@@ -196,7 +198,7 @@ const VideoPlayer = ({
         default:
           nextLevel = 0; // fallback to 1x
       }
-      
+
       if (nextLevel !== currentSpeedLevel) {
         updatePlaybackSpeed(nextLevel);
       }
@@ -209,25 +211,28 @@ const VideoPlayer = ({
   const onGestureEvent = (event: any) => {
     const { translationX, velocityX, state } = event.nativeEvent;
     const now = Date.now();
-    
+
     // Prevent rapid successive triggers
-    if (gestureRef.current.isProcessing || now - gestureRef.current.lastTrigger < 300) {
+    if (
+      gestureRef.current.isProcessing ||
+      now - gestureRef.current.lastTrigger < 300
+    ) {
       return;
     }
-    
+
     // Only handle horizontal swipes with sufficient velocity and distance
     if (Math.abs(velocityX) > 400 && Math.abs(translationX) > 40) {
       gestureRef.current.isProcessing = true;
       gestureRef.current.lastTrigger = now;
-      
+
       if (translationX > 0) {
         // Right swipe - increase speed
-        handleSpeedSwipe('right');
+        handleSpeedSwipe("right");
       } else {
         // Left swipe - decrease speed
-        handleSpeedSwipe('left');
+        handleSpeedSwipe("left");
       }
-      
+
       // Reset processing flag after a delay
       setTimeout(() => {
         gestureRef.current.isProcessing = false;
@@ -243,10 +248,6 @@ const VideoPlayer = ({
       }, 100);
     }
   };
-
-
-
-
 
   // FIX: Update local stats when videoData changes (e.g., when switching videos)
   useEffect(() => {
@@ -266,25 +267,25 @@ const VideoPlayer = ({
 
   useEffect(() => {
     const handlePurchaseSuccess = () => {
-      console.log('Purchase success detected in VideoPlayer, updating access');
+      console.log("Purchase success detected in VideoPlayer, updating access");
 
       // Increment access version to trigger re-evaluation
-      setAccessVersion(prev => prev + 1);
+      setAccessVersion((prev) => prev + 1);
 
       // Update access states based on purchase type
       if (isVideoPurchased) {
-        console.log('Video purchased, granting access');
+        console.log("Video purchased, granting access");
         setHaveAccess(true);
       }
 
       if (isPurchasedPass || isPurchasedCommunityPass) {
-        console.log('Creator pass purchased, granting creator access');
+        console.log("Creator pass purchased, granting creator access");
         setHaveCreator(true);
         setCheckCreatorPass(true);
       }
 
       if (isPurchasedSeries) {
-        console.log('Series purchased, granting access');
+        console.log("Series purchased, granting access");
         setHaveAccess(true);
       }
     };
@@ -294,14 +295,14 @@ const VideoPlayer = ({
 
     // Cleanup function
     return () => {
-      setPurchaseSuccessCallback(() => { });
+      setPurchaseSuccessCallback(() => {});
     };
   }, [
     setPurchaseSuccessCallback,
     isVideoPurchased,
     isPurchasedPass,
     isPurchasedCommunityPass,
-    isPurchasedSeries
+    isPurchasedSeries,
   ]);
 
   // Full screen:
@@ -346,8 +347,6 @@ const VideoPlayer = ({
     };
   }, []);
 
-
-
   // Set Access and Creator pass state of user when data comes
   useEffect(() => {
     setHaveAccess(videoData.access.isPurchased);
@@ -358,22 +357,35 @@ const VideoPlayer = ({
   // Update access if newly purchased
   useEffect(() => {
     if ((isPurchasedSeries || isVideoPurchased) && !haveAccess) {
-      console.log('VideoPlayer: Updating access due to purchase. isPurchasedSeries:', isPurchasedSeries, 'isVideoPurchased:', isVideoPurchased);
+      console.log(
+        "VideoPlayer: Updating access due to purchase. isPurchasedSeries:",
+        isPurchasedSeries,
+        "isVideoPurchased:",
+        isVideoPurchased
+      );
       setHaveAccess(true);
     }
   }, [isVideoPurchased, isPurchasedSeries, haveAccess]);
 
   useEffect(() => {
-    console.log('VideoPlayer Access Debug:', {
+    console.log("VideoPlayer Access Debug:", {
       videoId: videoData._id,
       haveAccess,
       haveCreator,
-      'videoData.access.isPurchased': videoData.access.isPurchased,
-      'isPurchasedSeries': isPurchasedSeries,
-      'isVideoPurchased': isVideoPurchased,
-      'combined access': haveAccess || haveCreator || videoData.access.isPurchased
+      "videoData.access.isPurchased": videoData.access.isPurchased,
+      isPurchasedSeries: isPurchasedSeries,
+      isVideoPurchased: isVideoPurchased,
+      "combined access":
+        haveAccess || haveCreator || videoData.access.isPurchased,
     });
-  }, [haveAccess, haveCreator, videoData.access.isPurchased, isPurchasedSeries, isVideoPurchased, videoData._id]);
+  }, [
+    haveAccess,
+    haveCreator,
+    videoData.access.isPurchased,
+    isPurchasedSeries,
+    isVideoPurchased,
+    videoData._id,
+  ]);
 
   // Update creator pass if just purchased
   useEffect(() => {
@@ -391,7 +403,7 @@ const VideoPlayer = ({
 
     setAccessChecked(false);
 
-    console.log('VideoPlayer Access Check:', {
+    console.log("VideoPlayer Access Check:", {
       videoId: videoData._id,
       isOwner: videoData.created_by._id === user?.id,
       amount: videoData.amount,
@@ -401,7 +413,7 @@ const VideoPlayer = ({
       isVideoPurchased,
       isPurchasedSeries,
       isPurchasedPass,
-      isPurchasedCommunityPass
+      isPurchasedCommunityPass,
     });
 
     if (
@@ -410,17 +422,24 @@ const VideoPlayer = ({
       fetchVideoDataAccess
     ) {
       // Check all forms of access
-      const hasAnyAccess = haveCreator || haveAccess || videoData.access.isPurchased || isVideoPurchased || isPurchasedSeries || isPurchasedPass || isPurchasedCommunityPass;
+      const hasAnyAccess =
+        haveCreator ||
+        haveAccess ||
+        videoData.access.isPurchased ||
+        isVideoPurchased ||
+        isPurchasedSeries ||
+        isPurchasedPass ||
+        isPurchasedCommunityPass;
 
       if (!hasAnyAccess) {
-        console.log('No access found, allowing free portion play');
+        console.log("No access found, allowing free portion play");
         setCanPlayVideo(true); // Allow video to play free portion
       } else {
-        console.log('Access granted, allowing full video play');
+        console.log("Access granted, allowing full video play");
         setCanPlayVideo(true);
       }
     } else {
-      console.log('User owns video or video is free, allowing play');
+      console.log("User owns video or video is free, allowing play");
       setCanPlayVideo(true);
     }
 
@@ -435,7 +454,7 @@ const VideoPlayer = ({
     isVideoPurchased,
     isPurchasedSeries,
     isPurchasedPass,
-    isPurchasedCommunityPass
+    isPurchasedCommunityPass,
   ]);
 
   // Handle player status changes
@@ -469,7 +488,7 @@ const VideoPlayer = ({
 
   // ✅ NEW: Handle initial seek completion callback
   const handleInitialSeekComplete = () => {
-    console.log('Initial seek completed for video:', videoData._id);
+    console.log("Initial seek completed for video:", videoData._id);
     setIsInitialSeekComplete(true);
   };
 
@@ -500,7 +519,7 @@ const VideoPlayer = ({
       isGifted: !!isGifted,
       playerError,
       isInitialSeekComplete,
-      hasStartTime
+      hasStartTime,
     });
 
     try {
@@ -542,28 +561,30 @@ const VideoPlayer = ({
   useEffect(() => {
     setIsInitialSeekComplete(false);
     setHasBeenActiveBefore(false);
-    
+
     // Reset all player states when video changes
     setIsReady(false);
     setIsBuffering(false);
     setPlayerError(false);
     setAccessChecked(false);
     setCanPlayVideo(false);
-    
+
     // Reset speed control when video changes
     setCurrentSpeedLevel(0);
     setShowSpeedIndicator(false);
-    
+
     console.log(`VideoPlayer: Resetting states for video ${videoData._id}`);
   }, [videoData._id, videoData?.access?.freeRange?.start_time]);
 
   // ✅ NEW: Reset states when becoming inactive to ensure clean state for next activation
   useEffect(() => {
     if (!isActive) {
-      console.log(`VideoPlayer: Video ${videoData._id} became inactive, resetting seek states`);
+      console.log(
+        `VideoPlayer: Video ${videoData._id} became inactive, resetting seek states`
+      );
       setIsInitialSeekComplete(false);
       setHasBeenActiveBefore(false);
-      
+
       // Ensure player is properly paused and muted when inactive
       if (player) {
         try {
@@ -586,12 +607,16 @@ const VideoPlayer = ({
       if (!hasBeenActiveBefore) {
         const startTime = videoData.access.freeRange.start_time;
         if (player.currentTime !== startTime) {
-          console.log(`VideoPlayer: Initial reset of video ${videoData._id} to start time: ${startTime}s`);
+          console.log(
+            `VideoPlayer: Initial reset of video ${videoData._id} to start time: ${startTime}s`
+          );
           player.currentTime = startTime;
-          
+
           // Call the initial seek complete callback after a short delay to ensure seek is processed
           setTimeout(() => {
-            console.log(`VideoPlayer: Calling handleInitialSeekComplete for video ${videoData._id}`);
+            console.log(
+              `VideoPlayer: Calling handleInitialSeekComplete for video ${videoData._id}`
+            );
             handleInitialSeekComplete();
           }, 300);
         } else {
@@ -601,15 +626,28 @@ const VideoPlayer = ({
         setHasBeenActiveBefore(true);
       }
       // If hasBeenActiveBefore is true, don't reset - let the user's seek position remain
-    } else if (isActive && player && (!videoData?.access?.freeRange?.start_time || videoData?.access?.freeRange?.start_time <= 0)) {
+    } else if (
+      isActive &&
+      player &&
+      (!videoData?.access?.freeRange?.start_time ||
+        videoData?.access?.freeRange?.start_time <= 0)
+    ) {
       // For videos without start time, immediately mark initial seek as complete
       if (!hasBeenActiveBefore) {
-        console.log(`VideoPlayer: No start time for video ${videoData._id}, marking initial seek complete`);
+        console.log(
+          `VideoPlayer: No start time for video ${videoData._id}, marking initial seek complete`
+        );
         handleInitialSeekComplete();
         setHasBeenActiveBefore(true);
       }
     }
-  }, [isActive, player, videoData._id, videoData?.access?.freeRange?.start_time, hasBeenActiveBefore]);
+  }, [
+    isActive,
+    player,
+    videoData._id,
+    videoData?.access?.freeRange?.start_time,
+    hasBeenActiveBefore,
+  ]);
 
   // Handle gifting pause
   useEffect(() => {
@@ -652,12 +690,14 @@ const VideoPlayer = ({
       isActive,
       isReady,
       canPlayVideo,
-      isMutedFromStore
+      isMutedFromStore,
     });
 
     try {
       if (!isFocused) {
-        console.log(`VideoPlayer ${videoData._id}: Lost focus, pausing and muting`);
+        console.log(
+          `VideoPlayer ${videoData._id}: Lost focus, pausing and muting`
+        );
         player.pause();
         player.muted = true;
         clearActivePlayer();
@@ -669,7 +709,10 @@ const VideoPlayer = ({
         canPlayVideo &&
         (!videoData?.access?.freeRange?.start_time || isInitialSeekComplete) // ✅ NEW: Check initial seek
       ) {
-        console.log(`VideoPlayer ${videoData._id}: Gained focus, playing with mute state:`, isMutedFromStore);
+        console.log(
+          `VideoPlayer ${videoData._id}: Gained focus, playing with mute state:`,
+          isMutedFromStore
+        );
         player.muted = isMutedFromStore;
         player.play();
         setActivePlayer(player);
@@ -890,7 +933,7 @@ const VideoPlayer = ({
                 style={dynamicStyles.spinner}
               />
             )}
-            
+
             {/* Speed Indicator */}
             {showSpeedIndicator && (
               <View style={styles.speedIndicator}>
@@ -906,6 +949,18 @@ const VideoPlayer = ({
           <Image
             source={{ uri: videoData.thumbnailUrl }}
             style={dynamicStyles.thumbnail}
+          />
+        </View>
+      )}
+
+      {visible && (
+        <View className="absolute z-50 bottom-0 w-full h-40">
+          <Drawer
+            visible={visible}
+            onClose={() => setVisible(false)}
+            options={["Block user"]}
+            onConfirm={handleBlockSuccess}
+            targetId={videoData.created_by._id}
           />
         </View>
       )}
@@ -961,7 +1016,9 @@ const VideoPlayer = ({
             access={videoData.access}
             hasCreatorPassOfVideoOwner={videoData.hasCreatorPassOfVideoOwner}
             onInitialSeekComplete={() => {
-              console.log(`VideoPlayer: onInitialSeekComplete called for ${videoData._id}`);
+              console.log(
+                `VideoPlayer: onInitialSeekComplete called for ${videoData._id}`
+              );
               handleInitialSeekComplete();
             }}
             isVideoOwner={videoData.created_by._id === user?.id}
@@ -977,14 +1034,18 @@ const VideoPlayer = ({
               created_by: {
                 _id: videoData.created_by._id,
                 username: videoData.created_by.username,
-                name: (videoData.created_by as any).name || videoData.created_by.username,
+                name:
+                  (videoData.created_by as any).name ||
+                  videoData.created_by.username,
                 profile_photo: videoData.created_by.profile_photo,
               },
-              series: videoData.series ? {
-                _id: videoData.series._id,
-                type: videoData.series.type,
-                price: videoData.series.price,
-              } : null,
+              series: videoData.series
+                ? {
+                    _id: videoData.series._id,
+                    type: videoData.series.type,
+                    price: videoData.series.price,
+                  }
+                : null,
             }}
           />
         </View>
@@ -992,7 +1053,7 @@ const VideoPlayer = ({
 
       {showWallet && !isLandscape && (
         <View
-          className={`z-10 absolute left-5 ${showWallet ? "top-10" : "top-14"}`}
+          className={`flex flex-row px-5 w-full items-center justify-between z-10 absolute ${showWallet ? "top-20" : "top-14"}`}
         >
           {/* <Pressable onPress={() => router.push("/(dashboard)/wallet")}>
             <Image
@@ -1000,6 +1061,11 @@ const VideoPlayer = ({
               className="size-10"
             />
           </Pressable> */}
+          <View></View>
+
+          <Pressable onPress={() => setVisible(true)}>
+            <MoreVerticalIcon color={"white"} size={20} />
+          </Pressable>
         </View>
       )}
 
@@ -1047,9 +1113,11 @@ const VideoPlayer = ({
               created_by: {
                 _id: videoData.created_by._id,
                 username: videoData.created_by.username,
-                name: (videoData.created_by as any).name || videoData.created_by.username,
+                name:
+                  (videoData.created_by as any).name ||
+                  videoData.created_by.username,
                 profile_photo: videoData.created_by.profile_photo,
-              }
+              },
             }}
           />
         </View>

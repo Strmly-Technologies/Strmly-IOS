@@ -5,7 +5,10 @@ import {
   Image,
   TouchableOpacity,
   Alert,
-  Platform
+  Platform,
+  Linking,
+  Modal,
+  Pressable,
 } from "react-native";
 import React, { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,8 +32,9 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
 }) => {
   const [selectedFile, setSelectedFile] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
-  // Create video player instance - always call the hook to maintain hook order
+  // Create video player instance
   const player = useVideoPlayer(selectedFile?.uri || "", (player) => {
     if (selectedFile) {
       player.loop = false;
@@ -38,35 +42,37 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
     }
   });
 
-  // Show content ownership confirmation before file selection
+  /** ==========================
+   *  Modal Logic (Copied + Integrated)
+   *  ========================== */
   const showContentOwnershipPopup = () => {
-    Alert.alert(
-      "Content Ownership",
-      "You are allowed to upload only your own original content. If you upload third-party or copyrighted content, it will be deleted by the Strmly team.",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
-        {
-          text: "I Understand",
-          onPress: handleFileSelect,
-          style: "default"
-        }
-      ],
-      { cancelable: true }
-    );
+    setShowModal(true);
   };
 
-  // Handle file selection
+  const handleViewPolicy = () => {
+    Linking.openURL("https://www.strmly.com/legal/privacy");
+  };
+
+  const handleAccept = () => {
+    setShowModal(false);
+    handleFileSelect();
+  };
+
+  const handleCancel = () => {
+    setShowModal(false);
+  };
+
+  /** ==========================
+   *  File Picker (using ImagePicker)
+   *  ========================== */
   const handleFileSelect = async () => {
     try {
       // Request media library permissions
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
+      if (status !== "granted") {
         Alert.alert(
           "Permission Required",
-          "Sorry, we need camera roll permissions to select videos from your gallery."
+          "We need permission to access your gallery to select videos."
         );
         return;
       }
@@ -80,13 +86,12 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
 
-        // Create file object similar to DocumentPicker format
         const file = {
           uri: asset.uri,
           name: asset.fileName || `video_${Date.now()}.mp4`,
           size: asset.fileSize,
-          mimeType: asset.type || 'video/mp4',
-          type: asset.type || 'video/mp4',
+          mimeType: asset.type || "video/mp4",
+          type: asset.type || "video/mp4",
         };
 
         console.log("✅ FileSelectScreen: Selected file:", {
@@ -97,19 +102,12 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
         });
 
         if (file.size && file.size > 4 * 1024 * 1024 * 1024) {
-          Alert.alert(
-            "File Too Large",
-            "Please select a video file smaller than 4GB"
-          );
+          Alert.alert("File Too Large", "Please select a video smaller than 4GB.");
           return;
         }
 
         setSelectedFile(file);
-        // Immediately notify parent component about file selection
         onFileSelected(file);
-        console.log(
-          "✅ FileSelectScreen: Notified parent about file selection"
-        );
       }
     } catch (error) {
       Alert.alert("Error", "Failed to select file. Please try again.");
@@ -117,34 +115,29 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
     }
   };
 
-  // Handle continue with selected file
+  /** ==========================
+   *  Continue & Video Preview Controls
+   *  ========================== */
   const handleContinueUpload = () => {
-    console.log(
-      "✅ FileSelectScreen: Continue with file:",
-      selectedFile.name
-    );
-    if (onContinueUpload) {
-      onContinueUpload();
+    if (!selectedFile) {
+      Alert.alert("No File Selected", "Please select a video first.");
+      return;
     }
+    onContinueUpload?.();
   };
 
-  // Handle video play/pause
   const togglePlayPause = () => {
     if (player && selectedFile) {
-      if (isPlaying) {
-        player.pause();
-      } else {
-        player.play();
-      }
+      if (isPlaying) player.pause();
+      else player.play();
       setIsPlaying(!isPlaying);
     }
   };
 
-  // Handle video selection from preview
   const handleSelectDifferentVideo = () => {
     setSelectedFile(null);
     setIsPlaying(false);
-    showContentOwnershipPopup(); // Show popup again when selecting different video
+    showContentOwnershipPopup();
   };
 
   return (
@@ -158,10 +151,40 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
         <View style={styles.headerSpacer} />
       </View>
 
+      {/* ⚠️ Modal (from first code) */}
+      <Modal visible={showModal} transparent animationType="slide">
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalText}>
+              ⚠️ Important:
+              {"\n\n"}1. You are only allowed to upload your own original content.
+              {"\n"}2. Uploading third-party or copyrighted content without
+              permission is strictly prohibited.
+              {"\n"}3. Uploading or sharing any content involving child
+              exploitation, abuse, or sexual material (CSAM) is illegal and strictly
+              forbidden.
+              {"\n\n"}By continuing, you agree to follow these rules.
+            </Text>
+
+            <Pressable onPress={handleViewPolicy}>
+              <Text style={styles.link}>📜 View Privacy Policy</Text>
+            </Pressable>
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity onPress={handleCancel}>
+                <Text style={styles.button}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAccept}>
+                <Text style={styles.button}>I Understand</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Main Content */}
       <View style={styles.content}>
         {selectedFile ? (
-          /* Video Preview Card */
           <View style={styles.videoPreviewContainer}>
             <View style={styles.videoContainer}>
               {player && selectedFile && (
@@ -174,7 +197,6 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
                 />
               )}
 
-              {/* Play/Pause Overlay */}
               <TouchableOpacity
                 style={styles.playPauseOverlay}
                 onPress={togglePlayPause}
@@ -189,7 +211,6 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Video Info */}
             <View style={styles.videoInfo}>
               <Text style={styles.videoName} numberOfLines={1}>
                 {selectedFile.name}
@@ -201,7 +222,6 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
               </Text>
             </View>
 
-            {/* Change Video Button */}
             <TouchableOpacity
               style={styles.changeVideoButton}
               onPress={handleSelectDifferentVideo}
@@ -211,7 +231,6 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
             </TouchableOpacity>
           </View>
         ) : (
-          /* Upload Interface */
           <View style={styles.innerContainer}>
             <Image
               source={require("../../../assets/upload.png")}
@@ -219,12 +238,11 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
               resizeMode="contain"
             />
             <Text style={styles.uploadText}>
-              You can upload videos of any length — 30 sec, 5 min, 1 hours or
-              more.
+              You can upload videos of any length — 30 sec, 5 min, 1 hour or more.
             </Text>
             <TouchableOpacity
               style={styles.uploadButton}
-              onPress={showContentOwnershipPopup} // Show popup when clicking upload
+              onPress={showContentOwnershipPopup}
             >
               <Text style={styles.uploadButtonText}>Upload file</Text>
             </TouchableOpacity>
@@ -239,14 +257,12 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
 
       {/* Action Buttons */}
       <View style={styles.actionButtonsContainer}>
-        {/* Save to Draft Button - Always show */}
         {onSaveToDraft && (
           <TouchableOpacity onPress={onSaveToDraft} style={styles.draftButton}>
             <Text style={styles.draftButtonText}>Save to Draft</Text>
           </TouchableOpacity>
         )}
 
-        {/* Continue Button - Always show, but disabled when no file */}
         <TouchableOpacity
           onPress={handleContinueUpload}
           style={[
@@ -269,11 +285,52 @@ const FileSelectScreen: React.FC<FileSelectScreenProps> = ({
   );
 };
 
+/** ==========================
+ *  Styles (merged with modal)
+ *  ========================== */
 const styles = StyleSheet.create({
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#000",
+    borderRadius: 12,
+    padding: 20,
+    width: "100%",
+    maxWidth: 400,
+    elevation: 5,
+  },
+  modalText: {
+    fontSize: 16,
+    color: "#fff",
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  link: {
+    fontSize: 16,
+    color: "#007AFF",
+    textDecorationLine: "underline",
+    marginBottom: 20,
+  },
+  buttonRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  button: {
+    fontSize: 16,
+    color: "#fff",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+
   container: {
     flex: 1,
     backgroundColor: "#000",
-    paddingTop: Platform.OS === 'ios' ? 10 : 0,
+    paddingTop: Platform.OS === "ios" ? 10 : 0,
   },
   header: {
     flexDirection: "row",
@@ -281,7 +338,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 12,
-
   },
   headerTitle: {
     color: "white",
@@ -373,7 +429,6 @@ const styles = StyleSheet.create({
   continueButtonTextDisabled: {
     color: "#9CA3AF",
   },
-  // Video Preview Styles
   videoPreviewContainer: {
     backgroundColor: "#1C1C1E",
     borderRadius: 12,

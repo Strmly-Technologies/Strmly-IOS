@@ -9,7 +9,8 @@ import {
   StatusBar,
   RefreshControl,
   Platform,
-  PanResponder
+  PanResponder,
+  DeviceEventEmitter,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import ThemedView from "@/components/ThemedView";
@@ -33,7 +34,8 @@ export type GiftType = {
 
 const { height: screenHeight } = Dimensions.get("window");
 const BOTTOM_NAV_HEIGHT = 50;
-const VIDEO_HEIGHT = Platform.OS == 'ios' ? screenHeight - 62 : screenHeight - 49;
+const VIDEO_HEIGHT =
+  Platform.OS == "ios" ? screenHeight - 62 : screenHeight - 49;
 
 const VideosFeed: React.FC = () => {
   const [videos, setVideos] = useState<VideoItemType[]>([]);
@@ -44,7 +46,6 @@ const VideosFeed: React.FC = () => {
   const [limit, setLimit] = useState(6);
   const [hasMore, setHasMore] = useState(true);
   const [isFetchingMore, setIsFetchingMore] = useState(false);
-
 
   const [showCommentsModal, setShowCommentsModal] = useState(false);
   const [isScreenFocused, setIsScreenFocused] = useState(true);
@@ -76,7 +77,14 @@ const VideosFeed: React.FC = () => {
         }
         console.log("token: ", token);
 
-        if (videos.length === 0 && !loading && !error && !isFetchingMore && !hasAttemptedFetch && !refreshing) {
+        if (
+          videos.length === 0 &&
+          !loading &&
+          !error &&
+          !isFetchingMore &&
+          !hasAttemptedFetch &&
+          !refreshing
+        ) {
           setLoading(true);
           setPage(1);
           setHasMore(true);
@@ -155,7 +163,9 @@ const VideosFeed: React.FC = () => {
         setHasMore(false);
       }
 
-      console.log(`Loaded ${json.data?.length || 0} videos for page ${targetPage}`);
+      console.log(
+        `Loaded ${json.data?.length || 0} videos for page ${targetPage}`
+      );
 
       // Only increment page if we're not refreshing (targetPage === 1)
       if (targetPage !== 1) {
@@ -176,6 +186,28 @@ const VideosFeed: React.FC = () => {
       }
     }
   };
+
+  // ✅ Remove blocked user's videos instantly
+  const handleBlockSuccess = useCallback((blockedUserId: string) => {
+    setVideos((prev) => prev.filter((v) => v.created_by._id !== blockedUserId));
+  }, []);
+
+  // ✅ Remove report video instantly
+  const removeReportedVideo = (videoId: string) => {
+    setVideos((prev) => prev.filter((v) => v._id !== videoId));
+  };
+
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener(
+      "videoReported",
+      (reportedVideoId) => {
+        console.log("Removing reported video:", reportedVideoId);
+        setVideos((prev) => prev.filter((v) => v._id !== reportedVideoId));
+      }
+    );
+
+    return () => subscription.remove();
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -282,6 +314,7 @@ const VideosFeed: React.FC = () => {
           showCommentsModal={showCommentsModal}
           setShowCommentsModal={setShowCommentsModal}
           containerHeight={VIDEO_HEIGHT}
+          handleBlockSuccess={handleBlockSuccess}
         />
       </View>
     ),
@@ -323,12 +356,15 @@ const VideosFeed: React.FC = () => {
 
   // Show loading while checking authentication or fetching videos
   if (loading && !refreshing && videos.length === 0) {
-    console.log('VideosFeed: Showing loading screen', { loading, refreshing, videosLength: videos.length, hasAttemptedFetch, error });
+    console.log("VideosFeed: Showing loading screen", {
+      loading,
+      refreshing,
+      videosLength: videos.length,
+      hasAttemptedFetch,
+      error,
+    });
     return (
-      <ThemedView
-        style={{ flex: 1 }}
-        className="justify-center items-center"
-      >
+      <ThemedView style={{ flex: 1 }} className="justify-center items-center">
         <ActivityIndicator size="large" color="white" />
         <Text className="text-white mt-4">
           {!token || !isLoggedIn
@@ -359,12 +395,15 @@ const VideosFeed: React.FC = () => {
   }
 
   if (videos.length === 0) {
-    console.log('VideosFeed: Showing no videos message', { loading, refreshing, videosLength: videos.length, hasAttemptedFetch, error });
+    console.log("VideosFeed: Showing no videos message", {
+      loading,
+      refreshing,
+      videosLength: videos.length,
+      hasAttemptedFetch,
+      error,
+    });
     return (
-      <ThemedView
-        style={{ flex: 1 }}
-        className="justify-center items-center"
-      >
+      <ThemedView style={{ flex: 1 }} className="justify-center items-center">
         <Text className="text-lg text-white">No Videos Available</Text>
         <Text className="text-lg text-white">
           Want to Upload your own{" "}
@@ -409,8 +448,8 @@ const VideosFeed: React.FC = () => {
         disableIntervalMomentum={true}
         onScrollEndDrag={onScrollEndDrag}
         onMomentumScrollEnd={onMomentumScrollEnd}
-        style={{ flex: 1, backgroundColor: '#000' }}
-        contentContainerStyle={{ backgroundColor: '#000' }}
+        style={{ flex: 1, backgroundColor: "#000" }}
+        contentContainerStyle={{ backgroundColor: "#000" }}
         overScrollMode="never"
         alwaysBounceVertical={false}
         refreshControl={
@@ -429,7 +468,14 @@ const VideosFeed: React.FC = () => {
         }
         ListFooterComponent={
           isFetchingMore ? (
-            <View style={{ height: VIDEO_HEIGHT, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+            <View
+              style={{
+                height: VIDEO_HEIGHT,
+                justifyContent: "center",
+                alignItems: "center",
+                backgroundColor: "#000",
+              }}
+            >
               <ActivityIndicator size="small" color="white" />
               <Text className="text-white mt-2">Loading more videos...</Text>
             </View>
