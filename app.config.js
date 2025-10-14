@@ -13,7 +13,7 @@ export default {
     newArchEnabled: true,
     ios: {
       bundleIdentifier: "com.anonymous.strmly",
-      buildNumber: "7",
+      buildNumber: "8",
       supportsTablet: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,

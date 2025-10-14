@@ -31,7 +31,7 @@ const REPORT_CATEGORIES: ReportCategory[] = [
   { id: "4", label: "Harmful / Violent Content", value: "harmful_violent" },
   { id: "5", label: "Hate Speech / Harassment", value: "hate_speech" },
   { id: "6", label: "Spam / Misleading", value: "spam" },
-  { id: "7", label: "Other", value: "other" },
+  { id: "7", label: "Other(report user, etc)", value: "other" },
 ];
 
 const Report = () => {

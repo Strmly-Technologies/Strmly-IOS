@@ -117,7 +117,6 @@ const VideoPlayer = ({
 
   // Drawer
   const [visible, setVisible] = useState(false);
-  const [selected, setSelected] = useState<string[]>([]);
 
   // Local stats
   const [localStats, setLocalStats] = useState({
@@ -954,7 +953,7 @@ const VideoPlayer = ({
       )}
 
       {visible && (
-        <View className="absolute z-50 bottom-0 w-full h-40">
+        <View className="absolute z-50 bottom-0 w-full h-auto">
           <Drawer
             visible={visible}
             onClose={() => setVisible(false)}
