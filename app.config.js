@@ -14,6 +14,7 @@ export default {
     ios: {
       bundleIdentifier: "com.anonymous.strmly",
       buildNumber: "8",
+
       supportsTablet: true,
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
