@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+} from "react";
 import {
   View,
   Text,
@@ -9,12 +15,14 @@ import {
   Linking,
   FlatList,
   Dimensions,
+  Pressable,
 } from "react-native";
 import {
   LinkIcon,
   HeartIcon,
   IndianRupee,
   MoreVertical,
+  MoreVerticalIcon,
 } from "lucide-react-native";
 import { useAuthStore } from "@/store/useAuthStore";
 import ThemedView from "@/components/ThemedView"; // Assuming this is a basic wrapper for styling
@@ -29,6 +37,7 @@ import { useVideosStore } from "@/store/useVideosStore";
 import { getDeviceInfo, getResponsiveStyles } from "@/utils/deviceUtils";
 import { set } from "lodash";
 import VideoGridSkeleton from "@/components/VideoGridSkeleton";
+import { Drawer } from "@/components/ChoiceDrawer";
 
 const { height } = Dimensions.get("window");
 
@@ -53,6 +62,9 @@ export default function PublicProfilePageWithId() {
   const [isLoadingSeries, setIsLoadingSeries] = useState(false);
   const [hasInitiallyLoaded, setHasInitiallyLoaded] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+
+  // Drawer
+  const [visible, setVisible] = useState(false);
 
   // Ref to track if component has mounted to prevent unnecessary effects
   const hasMounted = useRef(false);
@@ -120,130 +132,143 @@ export default function PublicProfilePageWithId() {
     [token, id, activeTab, isLoadingVideos, hasMore]
   );
 
-  const fetchUserSeries = useCallback(
-    async () => {
-      if (!token || !id || isLoadingSeries) return;
+  const fetchUserSeries = useCallback(async () => {
+    if (!token || !id || isLoadingSeries) return;
 
-      setIsLoadingSeries(true);
+    setIsLoadingSeries(true);
 
-      try {
-        console.log('🔍 fetchUserSeries Debug Info (Public Profile):');
-        console.log('  - User ID:', id);
+    try {
+      console.log("🔍 fetchUserSeries Debug Info (Public Profile):");
+      console.log("  - User ID:", id);
 
-        const url = `${BACKEND_API_URL}/series/user?t=${Date.now()}`;
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-          },
-        });
+      const url = `${BACKEND_API_URL}/series/user?t=${Date.now()}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+      });
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            try {
-              const errorData = await response.json();
-              if (errorData.error === "No series found for this user") {
-                console.log('✅ No series found - treating as empty result');
-                setSeries([]);
-                return;
-              }
-              // If we reach here, throw the error with the already parsed data
-              throw new Error(errorData.error || errorData.message || "Failed to fetch user series");
-            } catch (parseError) {
-              console.log('❌ Could not parse 404 error response as JSON');
-              // For 404, assume no series found
+      if (!response.ok) {
+        if (response.status === 404) {
+          try {
+            const errorData = await response.json();
+            if (errorData.error === "No series found for this user") {
+              console.log("✅ No series found - treating as empty result");
               setSeries([]);
               return;
             }
-          }
-          
-          // For non-404 errors, try to parse the response
-          try {
-            const errorData = await response.json();
-            throw new Error(errorData.error || errorData.message || "Failed to fetch user series");
+            // If we reach here, throw the error with the already parsed data
+            throw new Error(
+              errorData.error ||
+                errorData.message ||
+                "Failed to fetch user series"
+            );
           } catch (parseError) {
-            throw new Error(`Failed to fetch user series: ${response.status} ${response.statusText}`);
+            console.log("❌ Could not parse 404 error response as JSON");
+            // For 404, assume no series found
+            setSeries([]);
+            return;
           }
         }
 
-        const data = await response.json();
-
-        if (!data.data || !Array.isArray(data.data)) {
-          setSeries([]);
-          return;
+        // For non-404 errors, try to parse the response
+        try {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error ||
+              errorData.message ||
+              "Failed to fetch user series"
+          );
+        } catch (parseError) {
+          throw new Error(
+            `Failed to fetch user series: ${response.status} ${response.statusText}`
+          );
         }
+      }
 
-        // Transform series data - only show first episode of each series in grid
-        const firstEpisodes: any[] = [];
-        
-        data.data.forEach((seriesItem: any) => {
-          if (seriesItem.episodes && seriesItem.episodes.length > 0) {
-            const firstEpisode = seriesItem.episodes[0];
-            
-            firstEpisodes.push({
-              ...firstEpisode,
-              seriesId: seriesItem._id,
-              seriesTitle: seriesItem.title,
-              seriesGenre: seriesItem.genre,
-              seriesType: seriesItem.type,
-              episodeIndex: 0,
-              totalEpisodesInSeries: seriesItem.episodes.length,
-              allSeriesEpisodes: seriesItem.episodes,
-              videoUrl: firstEpisode.videoUrl || firstEpisode.video_url,
-              access: {
-                isPurchased: seriesItem.access?.isPurchased || true,
-                isPlayable: seriesItem.access?.isPlayable || true,
-                accessType: seriesItem.access?.accessType || "free",
-                freeRange: seriesItem.access?.freeRange || null,
-                price: seriesItem.price || 0,
-              },
-              hasCreatorPassOfVideoOwner: seriesItem.hasCreatorPassOfVideoOwner || false,
-              likes: firstEpisode.likes || 0,
-              shares: firstEpisode.shares || 0,
-              views: firstEpisode.views || 0,
-              gifts: firstEpisode.gifts || 0,
-              duration: firstEpisode.duration || firstEpisode.video_duration || 120,
-              name: firstEpisode.name || `Episode 1`,
-              amount: firstEpisode.amount || seriesItem.price || 0,
-              created_by: firstEpisode.created_by || seriesItem.created_by || {
+      const data = await response.json();
+
+      if (!data.data || !Array.isArray(data.data)) {
+        setSeries([]);
+        return;
+      }
+
+      // Transform series data - only show first episode of each series in grid
+      const firstEpisodes: any[] = [];
+
+      data.data.forEach((seriesItem: any) => {
+        if (seriesItem.episodes && seriesItem.episodes.length > 0) {
+          const firstEpisode = seriesItem.episodes[0];
+
+          firstEpisodes.push({
+            ...firstEpisode,
+            seriesId: seriesItem._id,
+            seriesTitle: seriesItem.title,
+            seriesGenre: seriesItem.genre,
+            seriesType: seriesItem.type,
+            episodeIndex: 0,
+            totalEpisodesInSeries: seriesItem.episodes.length,
+            allSeriesEpisodes: seriesItem.episodes,
+            videoUrl: firstEpisode.videoUrl || firstEpisode.video_url,
+            access: {
+              isPurchased: seriesItem.access?.isPurchased || true,
+              isPlayable: seriesItem.access?.isPlayable || true,
+              accessType: seriesItem.access?.accessType || "free",
+              freeRange: seriesItem.access?.freeRange || null,
+              price: seriesItem.price || 0,
+            },
+            hasCreatorPassOfVideoOwner:
+              seriesItem.hasCreatorPassOfVideoOwner || false,
+            likes: firstEpisode.likes || 0,
+            shares: firstEpisode.shares || 0,
+            views: firstEpisode.views || 0,
+            gifts: firstEpisode.gifts || 0,
+            duration:
+              firstEpisode.duration || firstEpisode.video_duration || 120,
+            name: firstEpisode.name || `Episode 1`,
+            amount: firstEpisode.amount || seriesItem.price || 0,
+            created_by: firstEpisode.created_by ||
+              seriesItem.created_by || {
                 _id: "unknown",
                 username: "Unknown",
                 profile_photo: "",
               },
-              series: {
-                _id: seriesItem._id,
-                title: seriesItem.title,
-                price: seriesItem.price || 0,
-              },
-            });
-          }
-        });
-
-        setSeries(firstEpisodes);
-        setHasInitiallyLoaded(true); // Mark as initially loaded
-      } catch (err) {
-        console.error("Error fetching user series:", err);
-        if (err instanceof Error && !err.message.includes("No series found")) {
-          Alert.alert("Error", err.message || "An unknown error occurred while fetching series.");
+            series: {
+              _id: seriesItem._id,
+              title: seriesItem.title,
+              price: seriesItem.price || 0,
+            },
+          });
         }
-        setHasInitiallyLoaded(true); // Mark as loaded even on error
-      } finally {
-        setIsLoadingSeries(false);
+      });
+
+      setSeries(firstEpisodes);
+      setHasInitiallyLoaded(true); // Mark as initially loaded
+    } catch (err) {
+      console.error("Error fetching user series:", err);
+      if (err instanceof Error && !err.message.includes("No series found")) {
+        Alert.alert(
+          "Error",
+          err.message || "An unknown error occurred while fetching series."
+        );
       }
-    },
-    [token, id, isLoadingSeries]
-  );
+      setHasInitiallyLoaded(true); // Mark as loaded even on error
+    } finally {
+      setIsLoadingSeries(false);
+    }
+  }, [token, id, isLoadingSeries]);
 
   // Handle tab changes separately to avoid re-fetching profile data
   useEffect(() => {
     if (!token || !id || !hasMounted.current) return;
-    
-    console.log('🔄 Tab changed to:', activeTab);
-    
+
+    console.log("🔄 Tab changed to:", activeTab);
+
     if (activeTab === "videos") {
-      console.log('📹 Fetching videos...');
+      console.log("📹 Fetching videos...");
       setVideos([]);
       setPage(1);
       setHasMore(true);
@@ -253,7 +278,7 @@ export default function PublicProfilePageWithId() {
         fetchUserVideos(1);
       }, 100);
     } else if (activeTab === "series") {
-      console.log('📺 Fetching series...');
+      console.log("📺 Fetching series...");
       setHasInitiallyLoaded(false); // Reset initial load state
       fetchUserSeries();
     }
@@ -504,7 +529,7 @@ export default function PublicProfilePageWithId() {
       className="relative aspect-[9/16] flex-1 rounded-sm overflow-hidden"
       onPress={() => {
         const { setVideoType } = useVideosStore.getState();
-        setVideoType('videos');
+        setVideoType("videos");
         setVideosInZustand(videos);
         router.push({
           pathname: "/(dashboard)/long/GlobalVideoPlayer",
@@ -534,40 +559,48 @@ export default function PublicProfilePageWithId() {
       onPress={() => {
         // Set all episodes from this series for the video player
         const { setVideoType } = useVideosStore.getState();
-        setVideoType('series');
-        
+        setVideoType("series");
+
         // Transform all episodes from this series for video player
-        const allEpisodesFromSeries = item.allSeriesEpisodes.map((episode: any, episodeIndex: number) => ({
-          ...episode,
-          seriesId: item.seriesId,
-          seriesTitle: item.seriesTitle,
-          seriesGenre: item.seriesGenre,
-          seriesType: item.seriesType,
-          episodeIndex: episodeIndex,
-          totalEpisodesInSeries: item.totalEpisodesInSeries,
-          videoUrl: episode.videoUrl || episode.video_url,
-          access: item.access,
-          hasCreatorPassOfVideoOwner: item.hasCreatorPassOfVideoOwner,
-          likes: episode.likes || 0,
-          shares: episode.shares || 0,
-          views: episode.views || 0,
-          gifts: episode.gifts || 0,
-          duration: episode.duration || episode.video_duration || 120,
-          name: episode.name || `Episode ${episodeIndex + 1}`,
-          amount: episode.amount || item.amount,
-          created_by: episode.created_by || item.created_by,
-          series: item.series,
-        }));
-        
+        const allEpisodesFromSeries = item.allSeriesEpisodes.map(
+          (episode: any, episodeIndex: number) => ({
+            ...episode,
+            seriesId: item.seriesId,
+            seriesTitle: item.seriesTitle,
+            seriesGenre: item.seriesGenre,
+            seriesType: item.seriesType,
+            episodeIndex: episodeIndex,
+            totalEpisodesInSeries: item.totalEpisodesInSeries,
+            videoUrl: episode.videoUrl || episode.video_url,
+            access: item.access,
+            hasCreatorPassOfVideoOwner: item.hasCreatorPassOfVideoOwner,
+            likes: episode.likes || 0,
+            shares: episode.shares || 0,
+            views: episode.views || 0,
+            gifts: episode.gifts || 0,
+            duration: episode.duration || episode.video_duration || 120,
+            name: episode.name || `Episode ${episodeIndex + 1}`,
+            amount: episode.amount || item.amount,
+            created_by: episode.created_by || item.created_by,
+            series: item.series,
+          })
+        );
+
         setVideosInZustand(allEpisodesFromSeries);
         router.push({
           pathname: "/(dashboard)/long/GlobalVideoPlayer",
-          params: { 
+          params: {
             startIndex: "0",
-            videoType: 'series'
+            videoType: "series",
           },
         });
-        console.log("Playing series:", item.seriesTitle, "starting from episode 1 of", item.totalEpisodesInSeries, "episodes");
+        console.log(
+          "Playing series:",
+          item.seriesTitle,
+          "starting from episode 1 of",
+          item.totalEpisodesInSeries,
+          "episodes"
+        );
       }}
     >
       {item.thumbnailUrl !== "" ? (
@@ -591,7 +624,8 @@ export default function PublicProfilePageWithId() {
       {/* Episode indicator overlay */}
       <View className="absolute bottom-2 left-2 bg-black bg-opacity-70 rounded px-2 py-1">
         <Text className="text-white text-xs font-medium">
-          E1 {item.totalEpisodesInSeries > 1 && `of ${item.totalEpisodesInSeries}`}
+          E1{" "}
+          {item.totalEpisodesInSeries > 1 && `of ${item.totalEpisodesInSeries}`}
         </Text>
       </View>
 
@@ -604,10 +638,6 @@ export default function PublicProfilePageWithId() {
     </TouchableOpacity>
   );
 
-
-
-
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "black" }} edges={[]}>
       <ThemedView style={{ flex: 1 }}>
@@ -615,13 +645,17 @@ export default function PublicProfilePageWithId() {
           key={activeTab} // Force re-render when switching tabs
           data={activeTab === "videos" ? videos : series}
           keyExtractor={(item) => item._id}
-          renderItem={activeTab === "videos" ? renderGridItem : renderSeriesItem}
+          renderItem={
+            activeTab === "videos" ? renderGridItem : renderSeriesItem
+          }
           numColumns={3} // Both videos and series use 3-column grid
           contentContainerStyle={{
             paddingBottom: 30,
             paddingHorizontal: 2,
           }}
-          onEndReached={activeTab === "videos" ? () => fetchUserVideos(page + 1) : undefined}
+          onEndReached={
+            activeTab === "videos" ? () => fetchUserVideos(page + 1) : undefined
+          }
           onEndReachedThreshold={0.8}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
@@ -635,12 +669,21 @@ export default function PublicProfilePageWithId() {
               ) : (
                 <View className="flex-1 gap-5">
                   {!isLoading && (
-                    <View className="h-48 relative">
-                      <ProfileTopbar
-                        hashtag={false}
-                        isMore={false}
-                        name={userData?.userDetails?.username}
-                      />
+                    <View className="h-48 relative items-center justify-between">
+                      <View className="flex-grow w-full">
+                        <ProfileTopbar
+                          hashtag={false}
+                          isMore={false}
+                          name={userData?.userDetails?.username}
+                        />
+                      </View>
+
+                      <Pressable
+                        className="absolute top-5 z-50 right-4"
+                        onPress={() => setVisible(true)}
+                      >
+                        <MoreVerticalIcon color={"white"} size={20} />
+                      </Pressable>
                     </View>
                   )}
 
@@ -650,15 +693,30 @@ export default function PublicProfilePageWithId() {
                       <ActivityIndicator size="large" color="#F1C40F" />
                     </View>
                   ) : (
-                    <View 
-                      className={`max-w-4xl -mt-32 relative ${deviceInfo.isTabletDevice ? '' : 'mx-6'}`}
-                      style={deviceInfo.isTabletDevice ? responsiveStyles.profileContainer : {}}
+                    <View
+                      className={`max-w-4xl -mt-32 relative ${deviceInfo.isTabletDevice ? "" : "mx-6"}`}
+                      style={
+                        deviceInfo.isTabletDevice
+                          ? responsiveStyles.profileContainer
+                          : {}
+                      }
                     >
                       <View className="flex flex-col items-center md:flex-row md:items-end space-y-4 md:space-y-0 md:space-x-4">
-                        <View className="items-center" style={deviceInfo.isTabletDevice ? responsiveStyles.profilePictureContainer : {}}>
-                          <View 
-                            className={`border-white border rounded-full overflow-hidden ${deviceInfo.isTabletDevice ? '' : 'size-24'}`}
-                            style={deviceInfo.isTabletDevice ? responsiveStyles.profilePictureSize : {}}
+                        <View
+                          className="items-center"
+                          style={
+                            deviceInfo.isTabletDevice
+                              ? responsiveStyles.profilePictureContainer
+                              : {}
+                          }
+                        >
+                          <View
+                            className={`border-white border rounded-full overflow-hidden ${deviceInfo.isTabletDevice ? "" : "size-24"}`}
+                            style={
+                              deviceInfo.isTabletDevice
+                                ? responsiveStyles.profilePictureSize
+                                : {}
+                            }
                           >
                             <Image
                               source={{
@@ -687,8 +745,12 @@ export default function PublicProfilePageWithId() {
 
                       {/* Stats */}
                       <View
-                        className={`mt-6 flex-row items-center ${userData?.userDetails?.creator_profile?.creator_pass_price !== 0 && !hasCreatorPass ? "justify-evenly" : "justify-center"} ${deviceInfo.isTabletDevice ? '' : userData?.userDetails?.creator_profile?.creator_pass_price !== 0 && !hasCreatorPass ? 'gap-4' : 'gap-5'}`}
-                        style={deviceInfo.isTabletDevice ? responsiveStyles.statsContainer : {}}
+                        className={`mt-6 flex-row items-center ${userData?.userDetails?.creator_profile?.creator_pass_price !== 0 && !hasCreatorPass ? "justify-evenly" : "justify-center"} ${deviceInfo.isTabletDevice ? "" : userData?.userDetails?.creator_profile?.creator_pass_price !== 0 && !hasCreatorPass ? "gap-4" : "gap-5"}`}
+                        style={
+                          deviceInfo.isTabletDevice
+                            ? responsiveStyles.statsContainer
+                            : {}
+                        }
                       >
                         <TouchableOpacity
                           className="text-center items-center"
@@ -712,29 +774,40 @@ export default function PublicProfilePageWithId() {
                           </Text>
                         </TouchableOpacity>
 
-                      {/* Access Button with White Border */}
-                        {userData?.userDetails?.creator_profile?.creator_pass_price !== 0 && !hasCreatorPass ? (
+                        {/* Access Button with White Border */}
+                        {userData?.userDetails?.creator_profile
+                          ?.creator_pass_price !== 0 && !hasCreatorPass ? (
                           <TouchableOpacity
                             onPress={() =>
                               router.push({
-                                pathname: "/(dashboard)/PurchasePass/PurchaseCreatorPass/[id]",
+                                pathname:
+                                  "/(dashboard)/PurchasePass/PurchaseCreatorPass/[id]",
                                 params: { id: userData?.userDetails._id },
                               })
                             }
                             className="h-10 rounded-lg border border-white bg-black items-center justify-center px-2"
                           >
                             <View className="flex-row items-center justify-center">
-                              <Text className="text-white text-center">Access at</Text>
+                              <Text className="text-white text-center">
+                                Access at
+                              </Text>
                               <IndianRupee color={"white"} size={13} />
                               <Text className="text-white text-center ml-0.5">
-                                {userData?.userDetails?.creator_profile?.creator_pass_price}/month
+                                {
+                                  userData?.userDetails?.creator_profile
+                                    ?.creator_pass_price
+                                }
+                                /month
                               </Text>
                             </View>
                           </TouchableOpacity>
-                        ) : userData?.userDetails?.creator_profile.creator_pass_price !== 0 ? (
+                        ) : userData?.userDetails?.creator_profile
+                            .creator_pass_price !== 0 ? (
                           <TouchableOpacity className="h-10 rounded-lg border border-white bg-black items-center justify-center px-4">
                             <View className="flex-row items-center justify-center">
-                              <Text className="text-white text-center">Joined</Text>
+                              <Text className="text-white text-center">
+                                Joined
+                              </Text>
                             </View>
                           </TouchableOpacity>
                         ) : (
@@ -912,14 +985,16 @@ export default function PublicProfilePageWithId() {
                       >
                         <Image
                           source={require("../../../../assets/images/logo.png")}
-                          style={{ 
-                            width: 24, 
+                          style={{
+                            width: 24,
                             height: 24,
-                            opacity: activeTab === "videos" ? 1 : 0.5
+                            opacity: activeTab === "videos" ? 1 : 0.5,
                           }}
                           resizeMode="contain"
                         />
-                        <Text className={`text-sm mt-1 ${activeTab === "videos" ? "text-white" : "text-gray-400"}`}>
+                        <Text
+                          className={`text-sm mt-1 ${activeTab === "videos" ? "text-white" : "text-gray-400"}`}
+                        >
                           Videos
                         </Text>
                       </TouchableOpacity>
@@ -930,35 +1005,53 @@ export default function PublicProfilePageWithId() {
                       >
                         <Image
                           source={require("../../../../assets/episode.png")}
-                          style={{ 
-                            width: 24, 
+                          style={{
+                            width: 24,
                             height: 24,
-                            opacity: activeTab === "series" ? 1 : 0.5
+                            opacity: activeTab === "series" ? 1 : 0.5,
                           }}
                           resizeMode="contain"
                         />
-                        <Text className={`text-sm mt-1 ${activeTab === "series" ? "text-white" : "text-gray-400"}`}>
+                        <Text
+                          className={`text-sm mt-1 ${activeTab === "series" ? "text-white" : "text-gray-400"}`}
+                        >
                           Series
                         </Text>
                       </TouchableOpacity>
                     </View>
                   </View>
+                </View>
+              )}
 
-
+              {visible && (
+                <View className="absolute z-50 bottom-0 w-full h-40">
+                  <Drawer
+                    visible={visible}
+                    onClose={() => setVisible(false)}
+                    options={["Block user"]}
+                    // onConfirm={handleBlockSuccess}
+                    targetId={userData.userDetails._id}
+                  />
                 </View>
               )}
             </>
           }
           ListEmptyComponent={() => {
             // Show skeleton when loading OR when we haven't initially loaded yet
-            if (!hasInitiallyLoaded || 
-                (activeTab === "videos" && isLoadingVideos) || 
-                (activeTab === "series" && isLoadingSeries)) {
+            if (
+              !hasInitiallyLoaded ||
+              (activeTab === "videos" && isLoadingVideos) ||
+              (activeTab === "series" && isLoadingSeries)
+            ) {
               return <VideoGridSkeleton count={12} />;
             }
-            
+
             // Only show empty state when we have initially loaded and there's no data
-            if (activeTab === "videos" && hasInitiallyLoaded && !isLoadingVideos) {
+            if (
+              activeTab === "videos" &&
+              hasInitiallyLoaded &&
+              !isLoadingVideos
+            ) {
               return (
                 <View className="items-center justify-center px-4 py-20">
                   <Image
@@ -975,8 +1068,12 @@ export default function PublicProfilePageWithId() {
                 </View>
               );
             }
-            
-            if (activeTab === "series" && hasInitiallyLoaded && !isLoadingSeries) {
+
+            if (
+              activeTab === "series" &&
+              hasInitiallyLoaded &&
+              !isLoadingSeries
+            ) {
               return (
                 <View className="items-center justify-center px-4 py-20">
                   <Image
@@ -993,12 +1090,12 @@ export default function PublicProfilePageWithId() {
                 </View>
               );
             }
-            
+
             return null;
           }}
           ListFooterComponent={
             // Show loading indicator only when loading more pages (not initial load)
-            (activeTab === "videos" && isLoadingVideos && videos.length > 0) ? (
+            activeTab === "videos" && isLoadingVideos && videos.length > 0 ? (
               <View style={{ padding: 20, alignItems: "center" }}>
                 <ActivityIndicator size="large" color="white" />
               </View>

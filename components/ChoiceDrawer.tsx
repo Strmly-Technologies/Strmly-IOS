@@ -16,6 +16,7 @@ import Animated, {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useAuthStore } from "@/store/useAuthStore";
 import CONFIG from "@/Constants/config";
+import Toast from "react-native-simple-toast";
 
 const { height } = Dimensions.get("window");
 const API_BASE_URL = CONFIG.API_BASE_URL;
@@ -97,18 +98,21 @@ export const Drawer = ({
       const data = await response.json();
 
       if (!response.ok) {
+        Toast.show(data.message || "User blocked successfully!", Toast.SHORT);
         console.error("Block user failed:", data);
         setSuccessMessage(null);
-        return;
+        runOnJS(onClose)();
       }
 
       // ✅ show success message
-      setSuccessMessage(data.message || "User blocked successfully!");
+      // setSuccessMessage(data.message || "User blocked successfully!");
       setSelectedOptions([]);
       if (onConfirm) {
         setSelectedOptions([]);
         onConfirm(targetId);
       }
+      Toast.show(data.message || "User blocked successfully!", Toast.SHORT);
+      runOnJS(onClose)();
     } catch (error) {
       console.error("Error in reportCall:", error);
       setSuccessMessage("Something went wrong. Please try again.");
@@ -118,15 +122,15 @@ export const Drawer = ({
   };
 
   const handleClose = () => {
-      runOnJS(onClose)();
-      setSuccessMessage(null);
+    runOnJS(onClose)();
+    setSuccessMessage(null);
   };
 
   return (
     <GestureDetector gesture={panGesture}>
       <Animated.View
         style={drawerStyle}
-        className="absolute bottom-0 left-0 w-full bg-white dark:bg-neutral-900 rounded-t-3xl px-6 py-5 gap-2 shadow-2xl"
+        className="absolute bottom-0 z-50 left-0 w-full bg-white dark:bg-neutral-900 rounded-t-3xl px-6 py-5 gap-2 shadow-2xl"
       >
         {/* Grab Handle */}
         <View className="self-center w-12 h-1 bg-black dark:bg-white rounded-full mb-5" />
@@ -204,7 +208,7 @@ export const Drawer = ({
             <Pressable
               onPress={reportCall}
               disabled={isReporting || selectedOptions.length === 0}
-              className={`py-3 mt-4 rounded-2xl items-center bg-white
+              className={`py-3 mt-4 mb-20 rounded-2xl items-center bg-white
               }`}
             >
               {!isReporting ? (

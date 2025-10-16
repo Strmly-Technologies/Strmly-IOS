@@ -22,6 +22,7 @@ import VideoPlayer from "./_components/VideoPlayer";
 import { clearActivePlayer } from "@/store/usePlayerStore";
 import { useVideosStore } from "@/store/useVideosStore";
 import { useOrientationStore } from "@/store/useOrientationStore";
+import Toast from "react-native-simple-toast";
 
 export type GiftType = {
   creator: {
@@ -190,6 +191,7 @@ const VideosFeed: React.FC = () => {
   // ✅ Remove blocked user's videos instantly
   const handleBlockSuccess = useCallback((blockedUserId: string) => {
     setVideos((prev) => prev.filter((v) => v.created_by._id !== blockedUserId));
+    Toast.show("User blocked successfully", Toast.SHORT);
   }, []);
 
   // ✅ Remove report video instantly
@@ -203,6 +205,7 @@ const VideosFeed: React.FC = () => {
       (reportedVideoId) => {
         console.log("Removing reported video:", reportedVideoId);
         setVideos((prev) => prev.filter((v) => v._id !== reportedVideoId));
+        Toast.show("Video reported successfully", Toast.SHORT);
       }
     );
 

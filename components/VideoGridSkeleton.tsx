@@ -5,7 +5,6 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
-  interpolate,
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -65,7 +64,7 @@ const SkeletonItem: React.FC = () => {
   );
 };
 
-const VideoGridSkeleton: React.FC<VideoGridSkeletonProps> = ({ count = 9 }) => {
+const VideoGridSkeleton: React.FC<VideoGridSkeletonProps> = ({ count = 6 }) => {
   // Create rows of 3 items each
   const rows = [];
   for (let i = 0; i < count; i += 3) {
