@@ -22,17 +22,13 @@
         "buildType": "app-bundle"
       },
       "ios": {
-        "workflow": "generic",
-        "simulator": false,
-        "scheme": "strmly",
-        "buildConfiguration": "Release"
+        "simulator": false
       },
       "env": {
         "BACKEND_API_URL": "https://backend.strmly.com/api/v1",
         "EXPO_PUBLIC_BACKEND_API_URL": "https://backend.strmly.com/api/v1",
         "GOOGLE_SERVICES_API_KEY": "your-google-api-key"
-      },
-      "useLocalBuildConfig": true
+      }
     }
   }
 }
